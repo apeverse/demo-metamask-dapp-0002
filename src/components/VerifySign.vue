@@ -66,7 +66,7 @@ function handleAccountsChanged(_accounts) {
 
 async function verifySign() {
   if (!amounts.value) {
-    amounts.value = 12;
+    amounts.value = 1600000000000000;
   }
 
   if (node.value === '') {
