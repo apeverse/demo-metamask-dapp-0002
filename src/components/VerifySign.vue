@@ -122,7 +122,7 @@ async function verifySign() {
   </div>
   <div class="btn">
     <button type="button" @click="initEthereum">Connect</button>
-    <button type="button" @click="verifySign">Verify Sign</button>
+    <button type="button" @click="verifySign">Sign & Verify</button>
   </div>
 </template>
 
