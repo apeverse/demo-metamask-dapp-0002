@@ -52,6 +52,8 @@ async function signTypedDataV4() {
             method: 'eth_chainId'
         });
 
+        console.log('Current chainId:', chainId);
+
         const messageData = {
             maker: maker.value,
             taker: taker.value,
