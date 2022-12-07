@@ -1,9 +1,11 @@
 <script setup>
-import VerifySign from './components/VerifySign.vue'
+import eip712Sign from './components/eip712Sign.vue'
+import ethSign from './components/ethSign.vue'
 </script>
 
 <template>
-  <VerifySign />
+  <eip712Sign/>
+  <ethSign/>
 </template>
 
 <style scoped>

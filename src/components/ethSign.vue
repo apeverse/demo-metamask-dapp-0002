@@ -116,6 +116,7 @@ async function verifySign() {
 </script>
 
 <template>
+   <h1>ETH-Sign</h1>
   <div>
     <input class="node" type="text" v-model="node" placeholder="0xc6cbe29b02227ba1bb49c0da438c639867e06abe8377a4e69e75a8b705b17b10">
     <input class="amounts" type="number" v-model="amounts" placeholder="1600000000000000">
@@ -127,6 +128,9 @@ async function verifySign() {
 </template>
 
 <style scoped>
+h1 {
+  text-align: left;
+}
 input:focus {
   border: 2px solid #555;
 }
