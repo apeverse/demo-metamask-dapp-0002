@@ -2,69 +2,27 @@
 import { ref, reactive, onMounted } from 'vue'
 import { LEDGER_ABI } from '../constants/ledger.json'
 import { ethers } from 'ethers'
-import detectEthereumProvider from '@metamask/detect-provider'
 
 const node = ref('');
 const amounts = ref();
 const currentAcc = ref(null);
-const ethereum = reactive({});
-
-onMounted(() => {
-  initEthereum();
-})
-
-async function initEthereum () {
-  const provider = await detectEthereumProvider();
-  if (provider) {
-    ethereum.value = provider;
-    await startApp(provider);
-  } else {
-    console.log('Please install MetaMask Plugin!');
-    alert('Please install MetaMask Plugin!');
-  }
-}
-
-async function startApp (ethereum) {
-  if (ethereum !== window.ethereum) {
-    console.error('Do you have multiple wallets installed?');
-  }
-  await connectMetaMask(ethereum);
-
-  ethereum
-  .request({ method: 'eth_accounts' })
-  .then(handleAccountsChanged)
-  .catch((err) => {
-    console.error(err);
-  })
-
-  ethereum.on('accountsChanged', handleAccountsChanged);
-  ethereum.on('chainChanged', (_chainId) => window.location.reload());
-}
-
-function connectMetaMask(ethereum) {
-  ethereum
-    .request({ method: 'eth_requestAccounts' })
-    .then(handleAccountsChanged)
-    .catch((err) => {
-      if (err.code === 4001) {
-        // EIP-1193 userRejectedRequest error
-        console.log('Please connect to MetaMask.');
-      } else {
-        console.error(err);
-      }
-    });
-}
-
-function handleAccountsChanged(_accounts) {
-  if (_accounts.length === 0) {
-        console.log('Please connect to MetaMask.');
-      } else if (_accounts[0] !== currentAcc.value) {
-        currentAcc.value = _accounts[0];
-        console.log('Current connect account:', currentAcc.value);
-    }
-}
 
 async function verifySign() {
+  if(!window.ethereum) return
+
+  try {
+    const accounts = await window.ethereum.request({
+      method: 'eth_accounts'
+    })
+    if (accounts.length === 0) {
+      alert('Please connect metamask.');
+      return;
+    }
+    currentAcc.value = accounts[0];
+  } catch(err) {
+    console.log(err);
+  }
+
   if (!amounts.value) {
     amounts.value = 1600000000000000;
   }
@@ -88,7 +46,7 @@ async function verifySign() {
   const hash = ethers.utils.keccak256(encData);
 
   try {
-    const signature = await ethereum.value.request({ method: 'eth_sign', params: [ currentAcc.value, hash ]});
+    const signature = await window.ethereum.request({ method: 'eth_sign', params: [currentAcc.value, hash]});
     console.log('Signature:', signature);
     const res = await legacyContract.verify_signature(node.value, amounts.value, signature);
     console.dir("Call verify_signature return:", res);
@@ -116,13 +74,12 @@ async function verifySign() {
 </script>
 
 <template>
-   <h1>ETH-Sign</h1>
+   <h1>eth_sign</h1>
   <div>
     <input class="node" type="text" v-model="node" placeholder="0xc6cbe29b02227ba1bb49c0da438c639867e06abe8377a4e69e75a8b705b17b10">
     <input class="amounts" type="number" v-model="amounts" placeholder="1600000000000000">
   </div>
   <div class="btn">
-    <button type="button" @click="initEthereum">Connect</button>
     <button type="button" @click="verifySign">Sign & Verify</button>
   </div>
 </template>
@@ -130,12 +87,13 @@ async function verifySign() {
 <style scoped>
 h1 {
   text-align: left;
+  margin: 16px 0;
 }
 input:focus {
   border: 2px solid #555;
 }
 .node {
-  width: 640px;
+  width: 650px;
   height: 30px;
   border-radius: 6px;
   outline: none;
@@ -158,9 +116,9 @@ input:focus {
 }
 .btn {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   outline: none;
-  margin-top: 30px;
+  margin-top: 32px;
 }
 
 button {

@@ -1,9 +1,11 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { ethers } from 'ethers'
+import detectEthereumProvider from '@metamask/detect-provider';
 
-const maker = ref('0xF07149221A4C85c26feCC560c5970Ec1415f6735');
-const taker = ref('0xe26f015ba6b8c400cE327CeEBE34B717e6897e69');
+const chainId = ref('');
+const maker = ref([]);
+const taker = ref('0x0000000000000000000000000000000000000000');
 const startTime = ref(0);
 const endTime = ref(0);
 const makerNonce = ref(21);
@@ -13,13 +15,13 @@ const sell = ref(true);
 const oneDaySeconds = 24 * 60 * 60;
 const tokenIdHex = "0x8fdbedec4e9ea7c8743ba6af3b8242bf7b3fbb47b8cb9dc27b0433eea62925e7"
 onMounted(() => {
+    initEthereum()
     startTime.value = Math.round(Date.now() / 1000);
     endTime.value = Math.round(Date.now() / 1000) + oneDaySeconds;
     console.log('Current timestamp(s) :', startTime.value);
     console.log('One day later timestamp(s):', endTime.value);
 
-
-    tokenId.value = ethers.BigNumber.from(tokenIdHex).toString(10)
+    tokenId.value = ethers.BigNumber.from(tokenIdHex).toString()
     console.log('TokenIdHex:', tokenIdHex, '\nTokenId:', tokenId.value);
 })
 
@@ -45,17 +47,23 @@ async function signTypedDataV4() {
 
 
     try {
-        const accounts = await window.ethereum.request({
+        maker.value = await window.ethereum.request({
             method: 'eth_accounts'
         });
-        const chainId = await window.ethereum.request({
+        chainId.value = await window.ethereum.request({
             method: 'eth_chainId'
         });
 
-        console.log('Current chainId:', chainId);
+        if (maker.value.length === 0) {
+            alert('Please connect metamask.');
+            return;
+        }
+
+        console.log('Current chainId:', chainId.value);
+        console.log('TokenIdHex:', tokenIdHex)
 
         const messageData = {
-            maker: maker.value,
+            maker: maker.value[0],
             taker: taker.value,
             startTime: startTime.value,
             endTime: endTime.value,
@@ -68,7 +76,7 @@ async function signTypedDataV4() {
         const domainData = {
             name: "DID NFT DEX",
             version: "Version 0.1.0",
-            chainId: chainId,
+            chainId: chainId.value,
             verifyingContract: "0x0000000000000000000000000000000000000000",
         };
         const typedData = {
@@ -84,8 +92,8 @@ async function signTypedDataV4() {
         const data = JSON.stringify(typedData)
         window.ethereum.sendAsync({
             method: 'eth_signTypedData_v4',
-            params: [accounts[0], data],
-            from: accounts[0]
+            params: [maker.value[0], data],
+            from: maker.value[0]
         }, (err, res) => {
             if (err) return console.log(err)
             if (res.error) {
@@ -101,15 +109,73 @@ async function signTypedDataV4() {
         console.log(err);
     }
 }
+
+async function initEthereum () {
+  const provider = await detectEthereumProvider();
+  if (provider) {
+    ethereum.value = provider;
+    await startApp(provider);
+  } else {
+    console.log('Please install MetaMask Plugin!');
+    alert('Please install MetaMask Plugin!');
+  }
+}
+
+async function startApp (ethereum) {
+  if (ethereum !== window.ethereum) {
+    console.error('Do you have multiple wallets installed?');
+  }
+  await connectMetaMask(ethereum);
+
+  ethereum
+  .request({ method: 'eth_accounts' })
+  .then(handleAccountsChanged)
+  .catch((err) => {
+    console.error(err);
+  })
+
+  ethereum.on('accountsChanged', handleAccountsChanged);
+  ethereum.on('chainChanged', (_chainId) => {
+    chainId.value = _chainId
+});
+}
+
+function connectMetaMask(ethereum) {
+  ethereum
+    .request({ method: 'eth_requestAccounts' })
+    .then(handleAccountsChanged)
+    .catch((err) => {
+      if (err.code === 4001) {
+        // EIP-1193 userRejectedRequest error
+        console.log('Please connect to MetaMask.');
+      } else {
+        console.error(err);
+      }
+    });
+}
+
+function handleAccountsChanged(_accounts) {
+  if (_accounts.length === 0) {
+        console.log('Please connect to MetaMask.');
+      } else if (_accounts[0] !== maker.value) {
+        maker.value = _accounts[0];
+        console.log('Current connect account:', maker.value);
+    }
+}
+
 </script>
 
 <template>
     <div class="container">
+        <div class="title-connect">
+            <h1>eth_signTypedData_v4</h1>
+            <button class="connect" type="button" @click="initEthereum">Connect Metamask</button>
+        </div>
+       
         <div class="inputs">
-            <h1>FixedPriceOrder</h1>
             <div>
                 <label>Maker</label>
-                <input class="input" v-model.trim="maker"/>
+                <input class="input" v-model.trim="maker" placeholder="Current signer account <Automatic input>."/>
             </div>
             <div>
                 <label>Taker</label>
@@ -140,17 +206,36 @@ async function signTypedDataV4() {
                 <input class="input" v-model.trim="sell"/>
             </div>
         </div>
-        <button @click="signTypedDataV4">EIP-721-sign</button>
+        <div class="btn">
+            <button class="sign" @click="signTypedDataV4">EIP-712-sign</button>
+        </div>
+
     </div>
-    
 </template>
 
 <style scoped lang="css">
-    .inputs {
-        width: 21px;
+.container {
+    width: 900px;
+}
+    .title-connect {
         display: flex;
-        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
     }
+
+    .inputs {
+        display: flex;
+        flex-direction: column;
+    }
+    .connect {
+        height: 45px;
+        font-size: 18px;
+        font-weight: 500;
+        border-radius: 6px;
+        cursor: pointer;
+        border: 2px solid #555;
+    }
+
     label {
         font-size: large;
         font-weight: 600;
@@ -158,8 +243,8 @@ async function signTypedDataV4() {
     }
 
     .input {
+        width: 100%;
         height: 32px;
-        width: 760px;
         border-radius: 6px;
         outline: none;
         font-size: 16px;
@@ -173,10 +258,13 @@ async function signTypedDataV4() {
         border: 2px solid #555;
     }
 
+    .btn {
+        display: flex;
+        justify-content: flex-end;
+    }
     
-    button {
-        margin: 20px -480px 0 0;
-        width: 150px;
+    .sign {
+        margin-top: 16px;
         height: 45px;
         font-size: 18px;
         font-weight: 500;
